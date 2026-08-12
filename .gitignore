@@ -1,5 +1,8 @@
 .spike-venv/
 .english-venv/
+.fast-venv/
+.quality-venv/
+.supertonic-venv/
 .models/
 __pycache__/
 *.pyc

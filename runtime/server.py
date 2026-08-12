@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import urllib.request
 import wave
@@ -21,8 +22,14 @@ from ipa_uk import ipa
 from styletts2_inference.models import StyleTTS2
 from ukrainian_word_stress import Stressifier, StressSymbol
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "vendor/styletts2-ukrainian"))
+from verbalizer import Verbalizer
+from prototype.language_router import segment_languages
+
 MODEL_ID = "patriotyk/styletts2_ukrainian_single"
 ENGLISH_URL = "http://127.0.0.1:8766/synthesize"
+QUALITY_PORT = 8768
 ENGLISH_RE = re.compile(r"(?<![A-Za-z])[A-Za-z]+(?:[-'][A-Za-z]+)*(?:[ \t]+[A-Za-z]+(?:[-'][A-Za-z]+)*)+(?:[.,!?;:]?(?=\s|$))")
 SENTENCE_RE = re.compile(r"(?<=[.!?:])\s+")
 LOCK = Lock()
@@ -31,6 +38,17 @@ torch.set_num_threads(min(6, os.cpu_count() or 1)); torch.set_num_interop_thread
 MODEL = StyleTTS2(hf_path=MODEL_ID, device="cpu")
 STYLE = torch.load(hf_hub_download(MODEL_ID, "style.pt"), map_location="cpu")
 STRESSIFIER = Stressifier()
+VERBALIZER = Verbalizer()
+
+
+def verbalize_mixed(text: str) -> str:
+    if not re.search(r"[A-Za-z0-9%$€£]", text):
+        return text
+    try:
+        value = VERBALIZER.process_text(text)[0]
+        return value.replace("процесорний процесор", "процесор")
+    except Exception:
+        return text
 
 
 def prepare_uk(text: str) -> str:
@@ -41,14 +59,8 @@ def prepare_uk(text: str) -> str:
 
 
 def segments(text: str):
-    cursor = 0
-    for match in ENGLISH_RE.finditer(text):
-        before = text[cursor:match.start()].strip()
-        if before: yield "uk", before
-        yield "en", match.group(0).strip()
-        cursor = match.end()
-    after = text[cursor:].strip()
-    if after: yield "uk", after
+    segment = segment_languages(text)[0]
+    yield segment.language, segment.text if segment.language == "en" else verbalize_mixed(segment.text)
 
 
 def synth_uk(text: str, speed: float) -> tuple[bytes, int]:
@@ -105,4 +117,4 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length",str(len(payload))); self.end_headers(); self.wfile.write(payload)
 
 
-if __name__ == "__main__": ThreadingHTTPServer(("127.0.0.1",8765),Handler).serve_forever()
+if __name__ == "__main__": ThreadingHTTPServer(("127.0.0.1",QUALITY_PORT),Handler).serve_forever()

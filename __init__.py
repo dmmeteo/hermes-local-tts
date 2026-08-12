@@ -36,6 +36,21 @@ def _request(path: str, payload: dict[str, Any] | None = None, timeout: float = 
         raise RuntimeError(f"Hermes Local TTS worker is unavailable at {_endpoint()}: {exc.reason}") from exc
 
 
+def _mode_status() -> dict[str, Any]:
+    return json.loads(_request("/mode", timeout=3))
+
+
+def _handle_mode(raw_args: str) -> str:
+    value = (raw_args or "status").strip().lower()
+    if value == "status":
+        status = _mode_status()
+        return f"Hermes Local TTS mode: **{status['mode']}** ({'ready' if status.get('ready') else 'starting'})"
+    if value not in {"fast", "quality"}:
+        return "Usage: /tts-mode <fast|quality|status>"
+    status = json.loads(_request("/mode", {"mode": value}, timeout=330))
+    return f"Hermes Local TTS switched to **{value}** ({'ready' if status.get('ready') else 'starting'})"
+
+
 class LocalTTSProvider(TTSProvider):
     @property
     def name(self) -> str:
@@ -57,7 +72,10 @@ class LocalTTSProvider(TTSProvider):
             return False
 
     def list_voices(self) -> list[dict[str, Any]]:
-        return [{"id": "uk-styletts2-en-bm_george", "display": "Ukrainian StyleTTS2 + English bm_george", "language": "uk-UA/en-GB", "gender": "male"}]
+        return [
+            {"id": "fast", "display": "Fast — Supertonic Robert", "language": "uk-UA/en-GB", "gender": "male"},
+            {"id": "quality", "display": "Quality — StyleTTS2 + bm_george", "language": "uk-UA/en-GB", "gender": "male"},
+        ]
 
     def list_models(self) -> list[dict[str, Any]]:
         return [{"id": "local-uk-en-v1", "display": "Local Ukrainian/English v1", "languages": ["uk", "en"], "max_text_length": 12000}]
@@ -102,4 +120,10 @@ def register(ctx) -> None:
         handler=_handle_tts,
         description="Synthesize one local Ukrainian/English voice message.",
         args_hint="<text>",
+    )
+    ctx.register_command(
+        "tts-mode",
+        handler=_handle_mode,
+        description="Switch Hermes Local TTS between fast and quality modes.",
+        args_hint="<fast|quality|status>",
     )

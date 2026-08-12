@@ -1,26 +1,79 @@
 # Hermes Local TTS
 
-Local Ukrainian text-to-speech for Hermes Agent.
+Opinionated local Ukrainian/English TTS for [Hermes Agent](https://hermes-agent.nousresearch.com/) with two modes:
 
-## Status
+| Mode | Pipeline | Best for |
+|---|---|---|
+| `fast` | Supertonic 3, Robert/M3, 16 steps | everyday voice mode, low RAM, lower latency |
+| `quality` | Ukrainian/mixed: Patriotyk verbalizer + StyleTTS2; full English sentences: Kokoro `bm_george` | more natural Ukrainian when quality matters |
 
-**Experimental and unreleased.** The current dogfood build routes Ukrainian through `patriotyk/styletts2_ukrainian_single` and English phrases through Kokoro `bm_george`. It is being installed and tested on one CPU-only Hermes host before any compatibility or support promise.
+The plugin preserves Hermes's normal text response and adds audio through the standard Discord/Telegram delivery pipeline.
 
-Read first: [`canon/README.md`](canon/README.md).
+> **Status:** experimental dogfood release. Linux, Python 3.11, `uv`, `ffmpeg`, systemd user services, and a CPU with enough RAM are currently required. Supertonic's upstream open-source repository is being archived; the local weights still work, but long-term support is uncertain.
 
-## MVP
+## Install
 
-- Ukrainian StyleTTS2 single-speaker synthesis.
-- English phrases synthesized with Kokoro `bm_george` (experimental routing).
-- Isolated runtime so PyTorch dependencies do not modify Hermes's venv.
-- Hermes `TTSProvider` integration using the standard Telegram/Discord delivery pipeline.
-- One-shot `/tts <text>` command if the current plugin command surface can deliver synchronously and origin-safely.
-- Existing `/voice` behavior remains unchanged.
+```bash
+git clone https://github.com/dmmeteo/hermes-local-tts
+cd hermes-local-tts
+./scripts/hermes-local-tts install --default fast
+```
 
-## Explicitly deferred
+The installer:
 
-- Voice cloning and multispeaker selection.
-- Alternative English voices or multilingual single-model synthesis.
-- `/tts` without arguments (“speak the previous response”).
-- Background delivery queues.
-- Changes to Hermes core Voice Mode.
+- creates isolated runtimes for fast, quality, and English synthesis;
+- downloads the required local model assets;
+- installs and enables the Hermes plugin;
+- installs user-level systemd services;
+- sets `tts.provider=local_tts`;
+- starts only the selected backend.
+
+Restart the Hermes gateway once after first installation so Discord/Telegram load the plugin commands.
+
+## Use
+
+CLI:
+
+```bash
+./scripts/hermes-local-tts status
+./scripts/hermes-local-tts mode fast
+./scripts/hermes-local-tts mode quality
+```
+
+Chat commands:
+
+```text
+/tts-mode status
+/tts-mode fast
+/tts-mode quality
+/tts <text>
+```
+
+Hermes's standard persistent `/voice` mode uses whichever local mode is active. Switching modes does not require a gateway restart.
+
+## Resource profile observed on a 6-vCPU CPU-only VPS
+
+| Mode | Cold test | Peak/persistent RAM | Notes |
+|---|---:|---:|---|
+| fast | ~48 s for a 13.3 s bilingual sample | ~0.5–0.6 GiB | one ONNX runtime |
+| quality | ~4:14 for a 14.4 s cold bilingual sample | ~3.9–4.0 GiB when both workers stay loaded | highest tested Ukrainian quality |
+
+Warm persistent-service latency is lower than process-cold measurements.
+
+## Routing
+
+Quality mode classifies each sentence:
+
+- fully English sentence → Kokoro `bm_george`;
+- Ukrainian or mixed Ukrainian/Latin sentence → Patriotyk verbalizer → StyleTTS2;
+- clean Ukrainian sentence bypasses verbalization.
+
+Fast mode uses one Supertonic Robert/M3 voice for all text. Automatic Ukrainian stress placement is intentionally not enabled: the tested stressifier produced confident but incorrect stresses. This remains an open improvement area.
+
+## Privacy
+
+All synthesis is local after model download. Workers bind only to localhost.
+
+## Project notes
+
+The design canon and benchmark history live under [`canon/`](canon/) and [`spike/`](spike/). Generated audio, model files, and virtual environments are excluded from Git.
