@@ -10,7 +10,6 @@ ExecStart=__PROJECT_DIR__/.spike-venv/bin/python __PROJECT_DIR__/runtime/server.
 Restart=on-failure
 RestartSec=3
 Environment=OMP_NUM_THREADS=6
-Environment=PYTHONPATH=__PROJECT_DIR__
 
 [Install]
 WantedBy=default.target

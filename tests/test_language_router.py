@@ -6,22 +6,8 @@ def test_routes_full_english_phrase() -> None:
         Segment("uk", "Це"), Segment("en", "initial results look promising."), Segment("uk", "Далі тест.")]
 
 
-def test_routes_lone_english_tokens() -> None:
-    assert segment_languages("Модель StyleTTS2 працює у Hermes.") == [
-        Segment("uk", "Модель"),
-        Segment("en", "StyleTTS2"),
-        Segment("uk", "працює у"),
-        Segment("en", "Hermes."),
-    ]
-
-
-def test_routes_acronyms_as_english_tokens() -> None:
-    assert segment_languages("CPU і RAM працюють добре.") == [
-        Segment("en", "CPU"),
-        Segment("uk", "і"),
-        Segment("en", "RAM"),
-        Segment("uk", "працюють добре."),
-    ]
+def test_keeps_lone_technical_tokens_with_ukrainian() -> None:
+    assert segment_languages("CPU і RAM працюють у Hermes.") == [Segment("uk", "CPU і RAM працюють у Hermes.")]
 
 
 def test_routes_selected_mixed_sentence() -> None:

@@ -21,10 +21,9 @@ from ipa_uk import ipa
 from styletts2_inference.models import StyleTTS2
 from ukrainian_word_stress import Stressifier, StressSymbol
 
-from prototype.language_router import segment_languages
-
 MODEL_ID = "patriotyk/styletts2_ukrainian_single"
 ENGLISH_URL = "http://127.0.0.1:8766/synthesize"
+ENGLISH_RE = re.compile(r"(?<![A-Za-z])[A-Za-z]+(?:[-'][A-Za-z]+)*(?:[ \t]+[A-Za-z]+(?:[-'][A-Za-z]+)*)+(?:[.,!?;:]?(?=\s|$))")
 SENTENCE_RE = re.compile(r"(?<=[.!?:])\s+")
 LOCK = Lock()
 
@@ -42,8 +41,14 @@ def prepare_uk(text: str) -> str:
 
 
 def segments(text: str):
-    for segment in segment_languages(text):
-        yield segment.language, segment.text
+    cursor = 0
+    for match in ENGLISH_RE.finditer(text):
+        before = text[cursor:match.start()].strip()
+        if before: yield "uk", before
+        yield "en", match.group(0).strip()
+        cursor = match.end()
+    after = text[cursor:].strip()
+    if after: yield "uk", after
 
 
 def synth_uk(text: str, speed: float) -> tuple[bytes, int]:
