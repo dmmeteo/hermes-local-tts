@@ -1,0 +1,4 @@
+name: hermes-local-tts
+version: 0.1.0
+description: Experimental local Ukrainian/English TTS provider for Hermes Agent
+author: Dmytro Sichkar

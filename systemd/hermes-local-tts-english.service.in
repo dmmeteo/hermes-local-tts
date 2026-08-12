@@ -1,0 +1,14 @@
+[Unit]
+Description=Hermes Local TTS English Kokoro worker
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__PROJECT_DIR__/.english-venv/bin/python __PROJECT_DIR__/runtime/english_server.py
+Restart=on-failure
+RestartSec=3
+Environment=OMP_NUM_THREADS=3
+
+[Install]
+WantedBy=default.target

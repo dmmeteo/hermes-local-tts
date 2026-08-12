@@ -1,4 +1,6 @@
 .spike-venv/
+.english-venv/
+.models/
 __pycache__/
 *.pyc
 spike/*.wav

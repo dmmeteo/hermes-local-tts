@@ -38,7 +38,11 @@ def main() -> None:
     parser.add_argument("--text", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--threads", type=int, default=6)
+    parser.add_argument("--speed", type=float, default=1.0)
     args = parser.parse_args()
+
+    if not 0.5 <= args.speed <= 2.0:
+        parser.error("--speed must be between 0.5 and 2.0")
 
     torch.set_num_threads(args.threads)
     torch.set_num_interop_threads(1)
@@ -54,17 +58,30 @@ def main() -> None:
     waves = []
     prep_seconds = 0.0
     infer_seconds = 0.0
-    for sentence in split_sentences(args.text):
+    chunk_metrics = []
+    for index, sentence in enumerate(split_sentences(args.text), start=1):
         t0 = time.monotonic()
         phonemes = prepare(sentence, stressifier)
-        prep_seconds += time.monotonic() - t0
+        chunk_prep = time.monotonic() - t0
+        prep_seconds += chunk_prep
         if not phonemes:
             continue
         tokens = model.tokenizer.encode(phonemes)
         t0 = time.monotonic()
         with torch.inference_mode():
-            waves.append(model(tokens, speed=1.0, s_prev=style))
-        infer_seconds += time.monotonic() - t0
+            wave = model(tokens, speed=args.speed, s_prev=style)
+        chunk_infer = time.monotonic() - t0
+        infer_seconds += chunk_infer
+        waves.append(wave)
+        chunk_duration = len(wave) / 24000
+        chunk_metrics.append({
+            "index": index,
+            "characters": len(sentence),
+            "preprocess_seconds": round(chunk_prep, 3),
+            "inference_seconds": round(chunk_infer, 3),
+            "audio_seconds": round(chunk_duration, 3),
+            "rtf": round(chunk_infer / chunk_duration, 3),
+        })
 
     if not waves:
         raise RuntimeError("No audio generated")
@@ -74,12 +91,15 @@ def main() -> None:
     result = {
         "model": MODEL_ID,
         "threads": args.threads,
+        "speed": args.speed,
+        "chunks": len(chunk_metrics),
         "load_seconds": round(loaded - started, 3),
         "preprocess_seconds": round(prep_seconds, 3),
         "inference_seconds": round(infer_seconds, 3),
         "total_seconds": round(time.monotonic() - started, 3),
         "audio_duration_seconds": round(duration, 3),
         "warm_inference_rtf": round(infer_seconds / duration, 3),
+        "chunk_metrics": chunk_metrics,
         "output": str(Path(args.output).resolve()),
     }
     print(json.dumps(result, ensure_ascii=False))
