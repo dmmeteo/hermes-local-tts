@@ -44,7 +44,11 @@ class Handler(BaseHTTPRequestHandler):
     with LOCK:value=switch(str(body.get('mode','')))
     self.send_json({'mode':value,'ready':health(TARGETS[value],90)});return
    if self.path!='/v1/audio/speech':self.send_error(404);return
-   value=mode();req=urllib.request.Request(TARGETS[value]+self.path,data=json.dumps(body).encode(),headers={'Content-Type':'application/json'})
+   requested=str(body.pop('mode',mode())).strip().lower()
+   if requested not in TARGETS:raise ValueError('mode must be fast or quality')
+   if requested!=mode():
+    with LOCK:switch(requested)
+   value=requested;req=urllib.request.Request(TARGETS[value]+self.path,data=json.dumps(body).encode(),headers={'Content-Type':'application/json'})
    with urllib.request.urlopen(req,timeout=900) as r:payload=r.read();ctype=r.headers.get('Content-Type','audio/ogg')
    self.send_response(200);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(payload)));self.end_headers();self.wfile.write(payload)
   except Exception as e:self.send_json({'error':str(e)},400)

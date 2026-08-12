@@ -32,24 +32,28 @@ Restart the Hermes gateway once after first installation so Discord/Telegram loa
 
 ## Use
 
-CLI:
+Set the mode in each Hermes profile config:
 
-```bash
-./scripts/hermes-local-tts status
-./scripts/hermes-local-tts mode fast
-./scripts/hermes-local-tts mode quality
+```yaml
+tts:
+  provider: local_tts
+  local_tts:
+    mode: fast  # fast | quality
 ```
 
-Chat commands:
+The plugin intentionally registers no slash commands. Hermes's standard command remains unchanged:
 
 ```text
-/tts-mode status
-/tts-mode fast
-/tts-mode quality
-/tts <text>
+/voice
+/voice on
+/voice off
+/voice tts
+/voice status
+/voice join
+/voice leave
 ```
 
-Hermes's standard persistent `/voice` mode uses whichever local mode is active. Switching modes does not require a gateway restart.
+Hermes's standard persistent `/voice` mode uses the configured local mode. Change `tts.local_tts.mode` and restart the profile gateway when switching modes.
 
 ## Resource profile observed on a 6-vCPU CPU-only VPS
 

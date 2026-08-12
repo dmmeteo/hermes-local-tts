@@ -2,21 +2,34 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Optional
 
+import yaml
 from agent.tts_provider import TTSProvider
+from hermes_constants import get_hermes_home
 
 DEFAULT_ENDPOINT = "http://127.0.0.1:8765"
+VALID_MODES = {"fast", "quality"}
 
 
 def _endpoint() -> str:
-    # Runtime endpoint is an internal deployment detail. User-facing behavior
-    # belongs in config.yaml once this experiment grows setup UX.
     return os.environ.get("HERMES_LOCAL_TTS_ENDPOINT", DEFAULT_ENDPOINT).rstrip("/")
+
+
+def _configured_mode() -> str:
+    config_path = get_hermes_home() / "config.yaml"
+    try:
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        value = config.get("tts", {}).get("local_tts", {}).get("mode", "fast")
+    except (OSError, TypeError, yaml.YAMLError):
+        value = "fast"
+    value = str(value).strip().lower()
+    if value not in VALID_MODES:
+        raise RuntimeError("tts.local_tts.mode must be 'fast' or 'quality'")
+    return value
 
 
 def _request(path: str, payload: dict[str, Any] | None = None, timeout: float = 900) -> bytes:
@@ -34,21 +47,6 @@ def _request(path: str, payload: dict[str, Any] | None = None, timeout: float = 
         raise RuntimeError(f"Hermes Local TTS worker returned HTTP {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Hermes Local TTS worker is unavailable at {_endpoint()}: {exc.reason}") from exc
-
-
-def _mode_status() -> dict[str, Any]:
-    return json.loads(_request("/mode", timeout=3))
-
-
-def _handle_mode(raw_args: str) -> str:
-    value = (raw_args or "status").strip().lower()
-    if value == "status":
-        status = _mode_status()
-        return f"Hermes Local TTS mode: **{status['mode']}** ({'ready' if status.get('ready') else 'starting'})"
-    if value not in {"fast", "quality"}:
-        return "Usage: /tts-mode <fast|quality|status>"
-    status = json.loads(_request("/mode", {"mode": value}, timeout=330))
-    return f"Hermes Local TTS switched to **{value}** ({'ready' if status.get('ready') else 'starting'})"
 
 
 class LocalTTSProvider(TTSProvider):
@@ -72,13 +70,13 @@ class LocalTTSProvider(TTSProvider):
             return False
 
     def list_voices(self) -> list[dict[str, Any]]:
-        return [{"id": "active", "display": "Active local mode (fast or quality)", "language": "uk-UA/en-GB", "gender": "male"}]
+        return [{"id": "active", "display": "Configured local mode", "language": "uk-UA/en-GB", "gender": "male"}]
 
     def list_models(self) -> list[dict[str, Any]]:
         return [{"id": "local-uk-en-v1", "display": "Local Ukrainian/English v1", "languages": ["uk", "en"], "max_text_length": 12000}]
 
     def get_setup_schema(self) -> dict[str, Any]:
-        return {"name": self.display_name, "badge": "local", "tag": "Experimental StyleTTS2 + Kokoro", "env_vars": []}
+        return {"name": self.display_name, "badge": "local", "tag": "Fast Supertonic or quality StyleTTS2", "env_vars": []}
 
     def synthesize(self, text: str, output_path: str, *, voice: Optional[str] = None,
                    model: Optional[str] = None, speed: Optional[float] = None,
@@ -89,6 +87,7 @@ class LocalTTSProvider(TTSProvider):
             "text": text,
             "speed": float(speed or 1.25),
             "format": format,
+            "mode": _configured_mode(),
         })
         target = Path(output_path)
         target.write_bytes(audio)
@@ -100,27 +99,5 @@ class LocalTTSProvider(TTSProvider):
 _PROVIDER = LocalTTSProvider()
 
 
-def _handle_tts(raw_args: str) -> str:
-    text = (raw_args or "").strip()
-    if not text:
-        return "Usage: /tts <text>"
-    fd, path = tempfile.mkstemp(prefix="hermes-local-tts-", suffix=".ogg")
-    os.close(fd)
-    _PROVIDER.synthesize(text, path, speed=1.25, format="ogg")
-    return f"[[audio_as_voice]]\nMEDIA:{path}"
-
-
 def register(ctx) -> None:
     ctx.register_tts_provider(_PROVIDER)
-    ctx.register_command(
-        "tts",
-        handler=_handle_tts,
-        description="Synthesize one local Ukrainian/English voice message.",
-        args_hint="<text>",
-    )
-    ctx.register_command(
-        "tts-mode",
-        handler=_handle_mode,
-        description="Switch Hermes Local TTS between fast and quality modes.",
-        args_hint="<fast|quality|status>",
-    )

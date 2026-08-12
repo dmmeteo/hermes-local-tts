@@ -25,13 +25,14 @@ def install(default,skip_plugin_install=False):
  UNITS.mkdir(parents=True,exist_ok=True)
  specs={'router':(sys.executable,ROOT/'runtime/router_server.py'),'fast':(ROOT/'.fast-venv/bin/python',ROOT/'runtime/fast_server.py'),'quality':(ROOT/'.quality-venv/bin/python',ROOT/'runtime/server.py'),'english':(ROOT/'.english-venv/bin/python',ROOT/'runtime/english_server.py')}
  for n,(py,sc) in specs.items():(UNITS/f'hermes-local-tts-{n}.service').write_text(unit(n,py,sc))
- run('systemctl','--user','daemon-reload');run('systemctl','--user','enable','--now','hermes-local-tts-router.service');wait_url('http://127.0.0.1:8765/health');set_mode(default)
+ run('systemctl','--user','daemon-reload');run('systemctl','--user','enable','--now','hermes-local-tts-router.service');wait_url('http://127.0.0.1:8765/health');activate_mode(default)
  if not skip_plugin_install:run('hermes','plugins','install','dmmeteo/hermes-local-tts','--enable','--force')
  run('hermes','config','set','tts.provider','local_tts')
+ run('hermes','config','set','tts.local_tts.mode',default)
  print('Installed Hermes Local TTS. Restart the Hermes gateway once so it loads the plugin commands.')
-def set_mode(value):
+def activate_mode(value):
  req=urllib.request.Request('http://127.0.0.1:8765/mode',data=json.dumps({'mode':value}).encode(),headers={'Content-Type':'application/json'});print(urllib.request.urlopen(req,timeout=330).read().decode())
 def status():print(urllib.request.urlopen('http://127.0.0.1:8765/health',timeout=5).read().decode())
 def shutil_which(name):
  import shutil;return shutil.which(name)
-p=argparse.ArgumentParser(prog='hermes-local-tts');s=p.add_subparsers(dest='cmd',required=True);i=s.add_parser('install');i.add_argument('--default',choices=['fast','quality'],default='fast');i.add_argument('--skip-plugin-install',action='store_true',help=argparse.SUPPRESS);m=s.add_parser('mode');m.add_argument('mode',choices=['fast','quality']);s.add_parser('status');a=p.parse_args();install(a.default,a.skip_plugin_install) if a.cmd=='install' else set_mode(a.mode) if a.cmd=='mode' else status()
+p=argparse.ArgumentParser(prog='hermes-local-tts');s=p.add_subparsers(dest='cmd',required=True);i=s.add_parser('install');i.add_argument('--default',choices=['fast','quality'],default='fast');i.add_argument('--skip-plugin-install',action='store_true',help=argparse.SUPPRESS);s.add_parser('status');a=p.parse_args();install(a.default,a.skip_plugin_install) if a.cmd=='install' else status()
