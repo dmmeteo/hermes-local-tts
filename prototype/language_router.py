@@ -6,12 +6,12 @@ from typing import Literal
 
 Language = Literal["uk", "en"]
 
-# Require at least two Latin-script words. This deliberately keeps lone
-# technical tokens such as CPU, RAM, Hermes, and ONNX in the Ukrainian stream.
-_ENGLISH_PHRASE_RE = re.compile(
-    r"(?<![A-Za-z])"
-    r"[A-Za-z]+(?:[-'][A-Za-z]+)*"
-    r"(?:[ \t]+[A-Za-z]+(?:[-'][A-Za-z]+)*)+"
+# One or more Latin-script tokens. Digits are allowed after the first letter so
+# product/model names such as StyleTTS2 are routed to the English voice too.
+_ENGLISH_RE = re.compile(
+    r"(?<![A-Za-z0-9])"
+    r"[A-Za-z][A-Za-z0-9]*(?:[-'][A-Za-z0-9]+)*"
+    r"(?:[ \t]+[A-Za-z][A-Za-z0-9]*(?:[-'][A-Za-z0-9]+)*)*"
     r"(?:[.,!?;:]?(?=\s|$))"
 )
 
@@ -22,14 +22,14 @@ class Segment:
     text: str
 
 
-def segment_languages(text: str, *, min_english_words: int = 2) -> list[Segment]:
-    """Route complete English phrases while retaining isolated Latin tokens."""
-    if min_english_words != 2:
-        raise ValueError("prototype router currently supports min_english_words=2")
+def segment_languages(text: str, *, min_english_words: int = 1) -> list[Segment]:
+    """Route Latin-script words and phrases to the English voice."""
+    if min_english_words != 1:
+        raise ValueError("router currently supports min_english_words=1")
 
     segments: list[Segment] = []
     cursor = 0
-    for match in _ENGLISH_PHRASE_RE.finditer(text):
+    for match in _ENGLISH_RE.finditer(text):
         before = text[cursor:match.start()].strip()
         if before:
             segments.append(Segment("uk", before))
