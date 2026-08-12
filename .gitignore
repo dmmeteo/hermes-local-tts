@@ -1,0 +1,7 @@
+.spike-venv/
+__pycache__/
+*.pyc
+spike/*.wav
+spike/*.ogg
+spike/*.json
+spike/*.time.txt
