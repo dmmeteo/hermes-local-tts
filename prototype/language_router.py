@@ -18,8 +18,7 @@ def segment_languages(text: str) -> list[Segment]:
     value = text.strip()
     if not value:
         return []
-    latin = len(re.findall(r"[A-Za-z]", value))
     cyrillic = len(re.findall(r"[А-Яа-яІіЇїЄєҐґ]", value))
     words = re.findall(r"[A-Za-z]+(?:[-'][A-Za-z]+)*", value)
-    language: Language = "en" if latin >= 8 and len(words) >= 3 and cyrillic == 0 else "uk"
+    language: Language = "en" if words and cyrillic == 0 else "uk"
     return [Segment(language, value)]

@@ -7,6 +7,10 @@ def test_routes_full_english_sentence() -> None:
     ]
 
 
+def test_routes_short_english_sentence() -> None:
+    assert segment_languages("Hello world.") == [Segment("en", "Hello world.")]
+
+
 def test_keeps_mixed_sentence_together_for_verbalization() -> None:
     assert segment_languages("Hermes використовує CPU і RAM.") == [
         Segment("uk", "Hermes використовує CPU і RAM.")

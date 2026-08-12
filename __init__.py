@@ -72,10 +72,7 @@ class LocalTTSProvider(TTSProvider):
             return False
 
     def list_voices(self) -> list[dict[str, Any]]:
-        return [
-            {"id": "fast", "display": "Fast — Supertonic Robert", "language": "uk-UA/en-GB", "gender": "male"},
-            {"id": "quality", "display": "Quality — StyleTTS2 + bm_george", "language": "uk-UA/en-GB", "gender": "male"},
-        ]
+        return [{"id": "active", "display": "Active local mode (fast or quality)", "language": "uk-UA/en-GB", "gender": "male"}]
 
     def list_models(self) -> list[dict[str, Any]]:
         return [{"id": "local-uk-en-v1", "display": "Local Ukrainian/English v1", "languages": ["uk", "en"], "max_text_length": 12000}]
